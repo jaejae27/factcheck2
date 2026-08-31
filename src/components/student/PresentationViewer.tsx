@@ -52,9 +52,22 @@ export const PresentationViewer: React.FC<PresentationViewerProps> = ({
     const handleFullscreenChange = () => {
       setIsFullscreen(!!document.fullscreenElement);
     };
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowRight' || e.key === ' ') {
+        nextSlide();
+      } else if (e.key === 'ArrowLeft') {
+        prevSlide();
+      } else if (e.key === 'Escape' && onClose) {
+        onClose();
+      }
+    };
     document.addEventListener('fullscreenchange', handleFullscreenChange);
-    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
-  }, []);
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [currentSlideIndex]);
 
   const toggleFullscreen = () => {
     if (!document.fullscreenElement) {
@@ -157,7 +170,29 @@ export const PresentationViewer: React.FC<PresentationViewerProps> = ({
       </div>
 
       {/* Main Slide Canvas */}
-      <div className="flex-1 flex items-center justify-center p-6 sm:p-12 overflow-hidden bg-radial from-slate-900 to-slate-950">
+      <div className="flex-1 flex items-center justify-center p-4 sm:p-8 md:p-12 overflow-hidden bg-radial from-slate-900 to-slate-950 relative">
+        {/* Left Side Quick Arrow */}
+        {currentSlideIndex > 0 && (
+          <button
+            onClick={prevSlide}
+            className="absolute left-3 sm:left-6 z-20 p-3 sm:p-4 rounded-full bg-slate-900/80 hover:bg-cyan-950/90 text-slate-300 hover:text-cyan-300 border border-slate-700/80 hover:border-cyan-500/50 shadow-xl transition active:scale-90"
+            title="이전 슬라이드 (← 키)"
+          >
+            <ChevronLeft className="w-6 h-6 sm:w-8 sm:h-8" />
+          </button>
+        )}
+
+        {/* Right Side Quick Arrow */}
+        {currentSlideIndex < totalSlides - 1 && (
+          <button
+            onClick={nextSlide}
+            className="absolute right-3 sm:right-6 z-20 p-3 sm:p-4 rounded-full bg-slate-900/80 hover:bg-cyan-950/90 text-slate-300 hover:text-cyan-300 border border-slate-700/80 hover:border-cyan-500/50 shadow-xl transition active:scale-90"
+            title="다음 슬라이드 (→ 키 또는 스페이스)"
+          >
+            <ChevronRight className="w-6 h-6 sm:w-8 sm:h-8" />
+          </button>
+        )}
+
         <div className="w-full max-w-5xl aspect-[16/9] max-h-[80vh] bg-slate-900 border-2 border-slate-700/80 rounded-3xl p-8 sm:p-12 shadow-2xl flex flex-col justify-between relative overflow-hidden transition-all">
           
           {/* Subtle Watermark */}
@@ -398,44 +433,46 @@ export const PresentationViewer: React.FC<PresentationViewerProps> = ({
         </div>
       </div>
 
-      {/* Bottom Remote Control Bar (For Presenter / Teacher) */}
-      <div className="flex items-center justify-between px-8 py-4 bg-slate-900/90 border-t border-slate-800">
-        <div className="flex items-center gap-2">
+      {/* Bottom Remote Control Bar */}
+      <div className="flex items-center justify-between px-6 sm:px-8 py-3.5 bg-slate-950/90 border-t border-slate-800">
+        <div className="flex items-center gap-1.5 sm:gap-2">
           {Array.from({ length: totalSlides }).map((_, idx) => (
             <button
               key={idx}
-              disabled={!isPresenter}
               onClick={() => onSlideChange && onSlideChange(idx)}
-              className={`h-2 rounded-full transition-all ${
+              className={`h-2.5 rounded-full transition-all flex items-center justify-center text-[9px] font-black ${
                 currentSlideIndex === idx
-                  ? 'w-8 bg-indigo-500'
-                  : 'w-2 bg-slate-700 hover:bg-slate-600'
+                  ? 'w-8 bg-cyan-400 text-slate-950 shadow-[0_0_10px_rgba(6,182,212,0.5)]'
+                  : 'w-2.5 bg-slate-700 hover:bg-slate-500 text-transparent'
               }`}
               title={`슬라이드 ${idx + 1}`}
             />
           ))}
+          <span className="text-[11px] font-mono text-slate-400 ml-2 hidden sm:inline">
+            {currentSlideIndex + 1} / {totalSlides}
+          </span>
         </div>
 
-        {isPresenter && (
-          <div className="flex items-center gap-3">
-            <button
-              onClick={prevSlide}
-              disabled={currentSlideIndex === 0}
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 disabled:opacity-30 text-white text-xs font-bold transition border border-slate-700"
-            >
-              <ChevronLeft className="w-4 h-4" />
-              이전 슬라이드
-            </button>
-            <button
-              onClick={nextSlide}
-              disabled={currentSlideIndex === totalSlides - 1}
-              className="inline-flex items-center gap-1.5 px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-30 text-white text-xs font-bold transition shadow-md"
-            >
-              다음 슬라이드
-              <ChevronRight className="w-4 h-4" />
-            </button>
-          </div>
-        )}
+        <div className="flex items-center gap-2 sm:gap-3">
+          <button
+            onClick={prevSlide}
+            disabled={currentSlideIndex === 0}
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 disabled:opacity-30 text-white text-xs font-bold transition border border-slate-700"
+            title="이전 슬라이드 (키보드 ←)"
+          >
+            <ChevronLeft className="w-4 h-4 text-cyan-300" />
+            <span>이전 슬라이드</span>
+          </button>
+          <button
+            onClick={nextSlide}
+            disabled={currentSlideIndex === totalSlides - 1}
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-cyan-500 hover:bg-cyan-400 disabled:opacity-30 text-slate-950 text-xs font-black transition shadow-md"
+            title="다음 슬라이드 (키보드 → 또는 스페이스)"
+          >
+            <span>다음 슬라이드</span>
+            <ChevronRight className="w-4 h-4" />
+          </button>
+        </div>
       </div>
 
     </div>

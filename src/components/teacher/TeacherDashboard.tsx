@@ -1261,6 +1261,17 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
                         )}
                         <button
                           onClick={() => {
+                            setPresentingTeamId(t.id);
+                            setShowTeacherPresentation(true);
+                          }}
+                          className="px-2.5 py-2 bg-cyan-950 hover:bg-cyan-900 text-cyan-300 border border-cyan-500/40 rounded-xl text-xs font-bold transition flex items-center gap-1"
+                          title="대화면 슬라이드 뷰어로 브리핑 진행 및 관람"
+                        >
+                          <Eye className="w-3.5 h-3.5" />
+                          <span>슬라이드</span>
+                        </button>
+                        <button
+                          onClick={() => {
                             const currInv = inv || { teamId: t.id, updatedAt: Date.now() };
                             openPresentationInNewWindow(t, currInv, teamEvs, members, liveRoom);
                           }}
@@ -1894,6 +1905,36 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
           </div>
         </div>
       )}
+
+      {/* Interactive Presentation Viewer Modal */}
+      {showTeacherPresentation && (() => {
+        const pTeam = liveTeams.find((t) => t.id === presentingTeamId) || liveTeams[0];
+        if (!pTeam) return null;
+        const pInv = investigationsMap[pTeam.id] || { teamId: pTeam.id, updatedAt: Date.now() };
+        const pEvList = allEvidence.filter((e) => e.teamId === pTeam.id);
+        const pMembers = liveStudents.filter((s) => s.teamId === pTeam.id);
+
+        return (
+          <PresentationViewer
+            room={liveRoom}
+            team={pTeam}
+            investigation={pInv}
+            evidenceList={pEvList}
+            teamMembers={pMembers}
+            currentSlideIndex={liveRoom.presentationState?.slideIndex || 0}
+            isPresenter={true}
+            onSlideChange={async (newIndex) => {
+              await updateRoomPresentation(liveRoom.id, {
+                active: true,
+                teamId: pTeam.id,
+                slideIndex: newIndex,
+                allowStudentControl: true,
+              });
+            }}
+            onClose={() => setShowTeacherPresentation(false)}
+          />
+        );
+      })()}
 
     </div>
   );

@@ -5,11 +5,91 @@ service cloud.firestore {
     function isAuthenticated() {
       return request.auth != null;
     }
-    
-    // Allow read/write to all collections for factcheck investigation app
-    // Supports teacher auth and student anonymous/session participation
+
+    function isTeacher() {
+      return request.auth != null;
+    }
+
+    // Rooms collection
+    match /rooms/{roomId} {
+      allow read: if true;
+      allow create: if isTeacher() && request.resource.data.teacherId == request.auth.uid;
+      allow update: if (isTeacher() && resource.data.teacherId == request.auth.uid) || true;
+      allow delete: if isTeacher() && resource.data.teacherId == request.auth.uid;
+    }
+
+    // Teams collection
+    match /teams/{teamId} {
+      allow read, write: if true;
+    }
+
+    // Students collection
+    match /students/{studentId} {
+      allow read, write: if true;
+    }
+
+    // Investigations collection
+    match /investigations/{teamId} {
+      allow read, write: if true;
+    }
+
+    // Evidence collection
+    match /evidence/{evidenceId} {
+      allow read, write: if true;
+    }
+
+    // Help Requests collection
+    match /helpRequests/{helpId} {
+      allow read, write: if true;
+    }
+    match /help_requests/{helpId} {
+      allow read, write: if true;
+    }
+
+    // Peer Reviews collection
+    match /peerReviews/{reviewId} {
+      allow read, write: if true;
+    }
+    match /peer_reviews/{reviewId} {
+      allow read, write: if true;
+    }
+
+    // Teacher Reviews collection
+    match /teacherReviews/{reviewId} {
+      allow read, write: if true;
+    }
+    match /teacher_reviews/{reviewId} {
+      allow read, write: if true;
+    }
+
+    // Student Reflections collection
+    match /reflections/{reflectionId} {
+      allow read, write: if true;
+    }
+    match /student_reflections/{reflectionId} {
+      allow read, write: if true;
+    }
+
+    // Teacher Observations collection
+    match /teacherObservations/{observationId} {
+      allow read, write: if true;
+    }
+    match /teacher_observations/{observationId} {
+      allow read, write: if true;
+    }
+
+    // School Record Drafts collection
+    match /schoolRecordDrafts/{recordId} {
+      allow read, write: if true;
+    }
+    match /school_records/{recordId} {
+      allow read, write: if true;
+    }
+
+    // Default fallback rule for any nested or other collections
     match /{document=**} {
       allow read, write: if true;
     }
   }
 }
+
