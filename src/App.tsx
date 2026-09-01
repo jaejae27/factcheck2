@@ -24,6 +24,8 @@ import {
   QrCode,
   Copy,
   Check,
+  Trash2,
+  AlertTriangle,
 } from 'lucide-react';
 import { Room, Student, Team, InvestigationData, EvidenceCard } from './types';
 import {
@@ -38,6 +40,7 @@ import {
   subscribeStudentsByRoom,
   createRoom,
   getTeacherRooms,
+  deleteRoom,
 } from './lib/db';
 import { createInteractiveDemoRoom } from './lib/demoData';
 import { StudentApp } from './components/student/StudentApp';
@@ -128,8 +131,28 @@ export default function App() {
   const [teacherRooms, setTeacherRooms] = useState<Room[]>([]);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [inviteModalRoom, setInviteModalRoom] = useState<Room | null>(null);
+  const [roomToDelete, setRoomToDelete] = useState<Room | null>(null);
+  const [isDeletingRoom, setIsDeletingRoom] = useState(false);
   const [copiedCodeId, setCopiedCodeId] = useState<string | null>(null);
   const [launchingDemo, setLaunchingDemo] = useState(false);
+
+  const handleDeleteRoom = async () => {
+    if (!roomToDelete) return;
+    setIsDeletingRoom(true);
+    try {
+      await deleteRoom(roomToDelete.id);
+      if (teacherSession) {
+        const updated = await getTeacherRooms(teacherSession.id);
+        setTeacherRooms(updated);
+      }
+      setRoomToDelete(null);
+    } catch (err) {
+      console.error('Failed to delete room:', err);
+      alert('수업방 삭제 중 오류가 발생했습니다. 다시 시도해 주세요.');
+    } finally {
+      setIsDeletingRoom(false);
+    }
+  };
 
   // Load teacher rooms whenever teacherSession changes or is restored
   useEffect(() => {
@@ -559,7 +582,19 @@ export default function App() {
         room={currentRoom}
         teams={roomTeams}
         students={roomStudents}
-        onExit={() => {
+        onExit={async () => {
+          if (teacherSession) {
+            const updated = await getTeacherRooms(teacherSession.id);
+            setTeacherRooms(updated);
+          }
+          setViewMode('landing');
+          setCurrentRoom(null);
+        }}
+        onDeleteRoom={async (deletedRoomId) => {
+          if (teacherSession) {
+            const updated = await getTeacherRooms(teacherSession.id);
+            setTeacherRooms(updated);
+          }
           setViewMode('landing');
           setCurrentRoom(null);
         }}
@@ -1030,6 +1065,13 @@ export default function App() {
                               상황실 입장
                               <ArrowRight className="w-3.5 h-3.5" />
                             </button>
+                            <button
+                              onClick={() => setRoomToDelete(r)}
+                              className="p-2 bg-slate-900 hover:bg-rose-950/80 text-slate-400 hover:text-rose-400 border border-slate-800 hover:border-rose-500/50 rounded-xl transition"
+                              title="수업방 삭제"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
                           </div>
                         </div>
                       ))}
@@ -1086,6 +1128,63 @@ export default function App() {
           room={inviteModalRoom}
           onClose={() => setInviteModalRoom(null)}
         />
+      )}
+
+      {/* Delete Room Confirmation Modal */}
+      {roomToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-150">
+          <div className="w-full max-w-md bg-slate-900 border-2 border-rose-500/40 rounded-3xl p-6 sm:p-7 shadow-[0_0_50px_rgba(244,63,94,0.25)] space-y-5 relative">
+            <div className="flex items-start gap-3.5">
+              <div className="w-12 h-12 rounded-2xl bg-rose-950/80 border border-rose-500/50 flex items-center justify-center text-rose-400 shrink-0">
+                <AlertTriangle className="w-6 h-6" />
+              </div>
+              <div className="space-y-1">
+                <span className="text-[10px] font-mono font-bold tracking-widest text-rose-400 uppercase">
+                  CONFIRM DELETION
+                </span>
+                <h3 className="text-base font-black text-white">수업방을 완전히 삭제하시겠습니까?</h3>
+                <p className="text-xs text-slate-400 leading-relaxed">
+                  삭제 시 해당 수업방의 모든 모둠, 학생 참가 기록, 수집 증거 및 판정 데이터가 영구적으로 삭제되며 복구할 수 없습니다.
+                </p>
+              </div>
+            </div>
+
+            <div className="p-3.5 rounded-2xl bg-slate-950 border border-slate-800 space-y-1 text-xs">
+              <div className="flex justify-between">
+                <span className="text-slate-400 font-mono">수업방:</span>
+                <strong className="text-white">{roomToDelete.title}</strong>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400 font-mono">학급:</span>
+                <span className="text-cyan-300 font-bold">{roomToDelete.grade}학년 {roomToDelete.classNumber}반 ({roomToDelete.period}차시)</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400 font-mono">참여코드:</span>
+                <span className="text-amber-400 font-mono font-black">{roomToDelete.roomCode}</span>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2.5 pt-1">
+              <button
+                type="button"
+                onClick={() => setRoomToDelete(null)}
+                disabled={isDeletingRoom}
+                className="flex-1 py-3 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-bold transition border border-slate-700"
+              >
+                취소
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteRoom}
+                disabled={isDeletingRoom}
+                className="flex-1 py-3 bg-rose-600 hover:bg-rose-500 text-white rounded-xl text-xs font-black transition shadow-[0_0_20px_rgba(244,63,94,0.4)] flex items-center justify-center gap-1.5"
+              >
+                <Trash2 className="w-4 h-4" />
+                <span>{isDeletingRoom ? '삭제 진행 중...' : '영구 삭제'}</span>
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
     </div>

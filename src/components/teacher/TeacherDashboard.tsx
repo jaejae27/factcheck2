@@ -33,6 +33,7 @@ import {
   UserCheck,
   ShieldCheck,
   Scale,
+  Trash2,
 } from 'lucide-react';
 import {
   Room,
@@ -65,6 +66,7 @@ import {
   subscribeEvidenceByRoom,
   subscribeInvestigationByTeam,
   getInvestigation,
+  deleteRoom,
 } from '../../lib/db';
 import { exportFullClassExcel } from '../common/ExcelExporter';
 import { ReportModal } from '../common/ReportExporter';
@@ -78,6 +80,7 @@ interface TeacherDashboardProps {
   teams: Team[];
   students: Student[];
   onExit: () => void;
+  onDeleteRoom?: (deletedRoomId: string) => void;
 }
 
 type TabType =
@@ -107,6 +110,7 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
   teams: initialTeams,
   students: initialStudents,
   onExit,
+  onDeleteRoom,
 }) => {
   const [activeTab, setActiveTab] = useState<TabType>('overview');
   const [copiedCode, setCopiedCode] = useState(false);
@@ -219,6 +223,27 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
   // State to track which team's live detailed submission view is expanded in Status tab
   const [expandedTeamDetails, setExpandedTeamDetails] = useState<Record<string, boolean>>({});
   const [selectedMonitoringStep, setSelectedMonitoringStep] = useState<number | null>(null);
+
+  // Room Deletion State
+  const [showDeleteRoomModal, setShowDeleteRoomModal] = useState(false);
+  const [isDeletingThisRoom, setIsDeletingThisRoom] = useState(false);
+
+  const handleDeleteThisRoom = async () => {
+    setIsDeletingThisRoom(true);
+    try {
+      await deleteRoom(liveRoom.id);
+      setShowDeleteRoomModal(false);
+      if (onDeleteRoom) {
+        onDeleteRoom(liveRoom.id);
+      } else {
+        onExit();
+      }
+    } catch (err) {
+      console.error('Failed to delete room:', err);
+      alert('수업방 삭제 중 오류가 발생했습니다. 다시 시도해 주세요.');
+      setIsDeletingThisRoom(false);
+    }
+  };
 
   const toggleTeamDetails = (teamId: string) => {
     setExpandedTeamDetails((prev) => ({ ...prev, [teamId]: !prev[teamId] }));
@@ -445,6 +470,15 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
               {copiedCode ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
             </button>
           </div>
+
+          <button
+            onClick={() => setShowDeleteRoomModal(true)}
+            className="text-xs text-rose-400 hover:text-rose-300 px-3 py-2 rounded-xl bg-rose-950/40 hover:bg-rose-900/60 border border-rose-500/40 hover:border-rose-400 transition font-mono flex items-center gap-1.5"
+            title="현재 수업방 및 데이터 영구 삭제"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">방 삭제</span>
+          </button>
 
           <button
             onClick={onExit}
@@ -1841,6 +1875,31 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
                 </div>
               </div>
             </div>
+
+            {/* DANGER ZONE: 수업방 삭제 섹션 */}
+            <div className="p-6 bg-rose-950/30 rounded-3xl border-2 border-rose-500/40 space-y-4">
+              <div className="flex items-start justify-between gap-4 flex-col sm:flex-row sm:items-center">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2 text-rose-400">
+                    <AlertTriangle className="w-5 h-5" />
+                    <h4 className="text-base font-black text-white">위험 구역: 수업방 영구 삭제 (Danger Zone)</h4>
+                  </div>
+                  <p className="text-xs text-slate-300 leading-relaxed">
+                    수업이 완전히 종료되었거나 테스트용으로 생성된 방을 데이터베이스에서 완전히 삭제합니다.
+                    <br />
+                    모든 모둠의 증거 카드, 평가 기록, 세특 초안 및 학생 접속 정보가 일괄 영구 삭제됩니다.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowDeleteRoomModal(true)}
+                  className="px-5 py-3 bg-rose-600 hover:bg-rose-500 text-white rounded-2xl text-xs font-black transition shadow-[0_0_20px_rgba(244,63,94,0.4)] flex items-center gap-2 shrink-0 active:scale-95"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  <span>현재 수업방 영구 삭제</span>
+                </button>
+              </div>
+            </div>
           </div>
         )}
 
@@ -2082,6 +2141,67 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
               >
                 <Send className="w-3.5 h-3.5" />
                 <span>지시 메시지 전송</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Room Deletion Confirmation Modal */}
+      {showDeleteRoomModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-md animate-in fade-in duration-150">
+          <div className="w-full max-w-md bg-slate-900 border-2 border-rose-500/50 rounded-3xl p-6 sm:p-7 shadow-[0_0_50px_rgba(244,63,94,0.3)] space-y-5 relative">
+            <div className="flex items-start gap-3.5">
+              <div className="w-12 h-12 rounded-2xl bg-rose-950/80 border border-rose-500/60 flex items-center justify-center text-rose-400 shrink-0 shadow-lg">
+                <AlertTriangle className="w-6 h-6" />
+              </div>
+              <div className="space-y-1">
+                <span className="text-[10px] font-mono font-bold tracking-widest text-rose-400 uppercase">
+                  CRITICAL ACTION
+                </span>
+                <h3 className="text-base font-black text-white">수업방을 완전히 삭제하시겠습니까?</h3>
+                <p className="text-xs text-slate-400 leading-relaxed">
+                  삭제 시 해당 수업방의 모든 모둠 데이터, 학생 수집 증거 및 세특 초안이 영구 삭제되며 복구할 수 없습니다.
+                </p>
+              </div>
+            </div>
+
+            <div className="p-3.5 rounded-2xl bg-slate-950 border border-slate-800 space-y-1.5 text-xs font-mono">
+              <div className="flex justify-between">
+                <span className="text-slate-400">수업방 이름:</span>
+                <strong className="text-white font-sans">{liveRoom.title}</strong>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400">학급 정보:</span>
+                <span className="text-cyan-300 font-bold">{liveRoom.grade}학년 {liveRoom.classNumber}반 ({liveRoom.period}차시)</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400">참여 코드:</span>
+                <span className="text-amber-400 font-black tracking-widest">{liveRoom.roomCode}</span>
+              </div>
+              <div className="flex justify-between border-t border-slate-800/80 pt-1.5 text-[11px]">
+                <span className="text-slate-400">참여 현황:</span>
+                <span className="text-slate-300">{liveTeams.length}개 모둠 / {liveStudents.length}명 학생</span>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2.5 pt-1">
+              <button
+                type="button"
+                onClick={() => setShowDeleteRoomModal(false)}
+                disabled={isDeletingThisRoom}
+                className="flex-1 py-3 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-bold transition border border-slate-700"
+              >
+                취소
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteThisRoom}
+                disabled={isDeletingThisRoom}
+                className="flex-1 py-3 bg-rose-600 hover:bg-rose-500 text-white rounded-xl text-xs font-black transition shadow-[0_0_20px_rgba(244,63,94,0.4)] flex items-center justify-center gap-1.5"
+              >
+                <Trash2 className="w-4 h-4" />
+                <span>{isDeletingThisRoom ? '삭제 진행 중...' : '영구 삭제'}</span>
               </button>
             </div>
           </div>

@@ -135,7 +135,57 @@ export async function updateRoomPresentation(roomId: string, presentationState: 
 
 
 export async function deleteRoom(roomId: string): Promise<void> {
-  await deleteDoc(doc(db, 'rooms', roomId));
+  try {
+    // 1. Find all teams in this room to delete their investigations
+    const teamsQ = query(collection(db, 'teams'), where('roomId', '==', roomId));
+    const teamsSnap = await getDocs(teamsQ);
+    const teamIds = teamsSnap.docs.map((d) => d.id);
+
+    // Delete investigations for each team
+    for (const teamId of teamIds) {
+      try {
+        await deleteDoc(doc(db, 'investigations', teamId));
+      } catch (e) {
+        console.warn(`Failed to delete investigation for team ${teamId}:`, e);
+      }
+    }
+
+    // Helper to delete all docs in a collection matching roomId
+    const collectionsToClean = [
+      'teams',
+      'students',
+      'evidence',
+      'helpRequests',
+      'peerReviews',
+      'teacherReviews',
+      'reflections',
+      'teacherObservations',
+      'schoolRecordDrafts',
+    ];
+
+    for (const colName of collectionsToClean) {
+      try {
+        const q = query(collection(db, colName), where('roomId', '==', roomId));
+        const snap = await getDocs(q);
+        const batch = writeBatch(db);
+        snap.docs.forEach((docSnap) => {
+          batch.delete(docSnap.ref);
+        });
+        if (snap.docs.length > 0) {
+          await batch.commit();
+        }
+      } catch (colErr) {
+        console.warn(`Error cleaning collection ${colName} for room ${roomId}:`, colErr);
+      }
+    }
+
+    // Finally delete the room document itself
+    await deleteDoc(doc(db, 'rooms', roomId));
+  } catch (err) {
+    console.error('Error completely deleting room:', err);
+    // Fallback delete room doc
+    await deleteDoc(doc(db, 'rooms', roomId));
+  }
 }
 
 export function subscribeRoom(roomId: string, callback: (room: Room | null) => void) {
