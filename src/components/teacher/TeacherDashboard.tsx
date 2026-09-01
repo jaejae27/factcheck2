@@ -31,6 +31,8 @@ import {
   MessageSquare,
   Activity,
   UserCheck,
+  ShieldCheck,
+  Scale,
 } from 'lucide-react';
 import {
   Room,
@@ -216,6 +218,7 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
 
   // State to track which team's live detailed submission view is expanded in Status tab
   const [expandedTeamDetails, setExpandedTeamDetails] = useState<Record<string, boolean>>({});
+  const [selectedMonitoringStep, setSelectedMonitoringStep] = useState<number | null>(null);
 
   const toggleTeamDetails = (teamId: string) => {
     setExpandedTeamDetails((prev) => ({ ...prev, [teamId]: !prev[teamId] }));
@@ -599,70 +602,251 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
         {activeTab === 'overview' && (
           <div className="space-y-6 animate-in fade-in duration-200">
             
-            {/* COMMAND CONTROL: 전체 학급 진행 단계 제어 */}
-            <div className="p-5 sm:p-6 bg-gradient-to-r from-[#0a182c] via-[#0d2242] to-[#0a182c] rounded-3xl border-2 border-cyan-500/40 space-y-4 shadow-xl">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-cyan-500/20 pb-3">
+            {/* LIVE INVESTIGATION MONITORING: 실시간 모둠별 수사 진행 현황 관제 */}
+            <div className="p-5 sm:p-6 bg-gradient-to-r from-[#0a182c] via-[#0d2242] to-[#0a182c] rounded-3xl border-2 border-cyan-500/40 space-y-5 shadow-xl">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-cyan-500/20 pb-4">
                 <div>
                   <div className="flex items-center gap-2">
-                    <span className="px-2.5 py-0.5 rounded-lg text-[10px] font-black uppercase tracking-wider bg-cyan-500/20 text-cyan-300 border border-cyan-500/40">
-                      COMMAND CONTROL
+                    <span className="px-2.5 py-0.5 rounded-lg text-[10px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
+                      LIVE MONITORING
                     </span>
                     <h3 className="text-sm sm:text-base font-black text-white flex items-center gap-2">
-                      <Radio className="w-4 h-4 text-cyan-400 animate-pulse" />
-                      전체 학급 진행 단계 제어
+                      <Activity className="w-4 h-4 text-cyan-400 animate-pulse" />
+                      실시간 모둠별 수사 진행 현황 관제
                     </h3>
                   </div>
                   <p className="text-xs text-slate-300 mt-1">
-                    단계를 클릭하면 모든 학생 태블릿/화면이 해당 탐구 단계로 실시간 전환됩니다.
+                    학생들이 각 모둠의 탐구 속도에 맞춰 자율적으로 수사를 진행하고 있습니다. 교사는 학생 화면을 강제 제어하지 않고 실시간 진행 상황을 확인합니다.
                   </p>
                 </div>
-                <span className="px-3.5 py-1.5 rounded-2xl text-xs font-mono font-bold bg-cyan-950 text-cyan-300 border border-cyan-500/50 w-fit shadow">
-                  현재 본부 단계: <strong>STEP 0{liveRoom.activeStep || 1} / 06</strong>
-                </span>
+                <div className="flex items-center gap-2">
+                  {selectedMonitoringStep !== null && (
+                    <button
+                      onClick={() => setSelectedMonitoringStep(null)}
+                      className="px-2.5 py-1 rounded-xl text-[11px] font-bold bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-slate-700 transition"
+                    >
+                      전체 단계 보기
+                    </button>
+                  )}
+                  <span className="px-3.5 py-1.5 rounded-2xl text-xs font-mono font-bold bg-cyan-950 text-cyan-300 border border-cyan-500/50 w-fit shadow">
+                    총 <strong>{liveTeams.length}개 모둠 ({liveStudents.length}명)</strong>
+                  </span>
+                </div>
               </div>
 
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 pt-1">
+              {/* 6대 탐구 단계별 실시간 분포 요약 매트릭스 */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
                 {[
                   { step: 1, num: '01', title: '사건 접수', desc: '사건 선택 & 역할 배정' },
                   { step: 2, num: '02', title: '수사 질문', desc: '최초 판단 & 가설 수립' },
-                  { step: 3, num: '03', title: '증거 수집', desc: '증거 계획 & 카드 확보' },
+                  { step: 3, num: '03', title: '증거 수집', desc: '출처 & 증거 카드 확보' },
                   { step: 4, num: '04', title: '증거 검증', desc: '교차검증 & 반증·예외' },
-                  { step: 5, num: '05', title: '합동수사·판정', desc: '모둠 회의 & 팩트 판정' },
-                  { step: 6, num: '06', title: '브리핑·성찰', desc: '발표 · 상호평가 · 성찰' },
+                  { step: 5, num: '05', title: '합동 판정', desc: '모둠 토의 & 팩트 판정' },
+                  { step: 6, num: '06', title: '브리핑·성찰', desc: '보고서 · 발표 · 성찰' },
                 ].map((st) => {
-                  const isActive = (liveRoom.activeStep || 1) === st.step;
+                  const teamsAtThisStep = liveTeams.filter((t) => (t.currentStep || 1) === st.step);
+                  const isSelected = selectedMonitoringStep === st.step;
+                  const hasTeams = teamsAtThisStep.length > 0;
+
                   return (
-                    <button
+                    <div
                       key={st.step}
-                      onClick={() => handleBroadcastStep(st.step)}
-                      className={`p-3.5 rounded-2xl text-left transition flex flex-col justify-between gap-2 relative overflow-hidden group ${
-                        isActive
+                      onClick={() => setSelectedMonitoringStep(isSelected ? null : st.step)}
+                      className={`p-3.5 rounded-2xl text-left transition flex flex-col justify-between gap-2 relative overflow-hidden cursor-pointer select-none ${
+                        isSelected
                           ? 'bg-gradient-to-b from-cyan-400 to-cyan-500 text-slate-950 ring-2 ring-cyan-200 shadow-[0_0_16px_rgba(6,182,212,0.5)] font-black scale-[1.02]'
-                          : 'bg-slate-800/90 text-slate-200 hover:bg-slate-700/90 hover:text-white border border-slate-700/80'
+                          : hasTeams
+                          ? 'bg-slate-800/90 hover:bg-slate-750 text-slate-200 border-2 border-cyan-500/40 hover:border-cyan-400'
+                          : 'bg-slate-900/60 text-slate-400 border border-slate-800/80 hover:bg-slate-800/60'
                       }`}
+                      title={`${st.title} 단계의 모둠만 필터링`}
                     >
                       <div className="flex items-center justify-between">
                         <span className={`text-[11px] font-mono font-black px-2 py-0.5 rounded-lg ${
-                          isActive ? 'bg-slate-950 text-cyan-300' : 'bg-slate-900 text-slate-400'
+                          isSelected
+                            ? 'bg-slate-950 text-cyan-300'
+                            : hasTeams
+                            ? 'bg-cyan-950 text-cyan-300 border border-cyan-500/40'
+                            : 'bg-slate-950 text-slate-500'
                         }`}>
-                          {st.num}
+                          STEP {st.num}
                         </span>
-                        {isActive && (
-                          <span className="flex h-2 w-2 relative">
-                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-slate-950 opacity-75"></span>
-                            <span className="relative inline-flex rounded-full h-2 w-2 bg-slate-950"></span>
-                          </span>
-                        )}
+                        <span className={`text-xs font-mono font-black px-2 py-0.5 rounded-full ${
+                          isSelected
+                            ? 'bg-slate-950 text-white'
+                            : hasTeams
+                            ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30'
+                            : 'text-slate-500'
+                        }`}>
+                          {teamsAtThisStep.length}팀
+                        </span>
                       </div>
+
                       <div>
                         <h4 className="text-xs sm:text-sm font-black leading-tight">{st.title}</h4>
-                        <p className={`text-[10px] mt-0.5 ${isActive ? 'text-slate-950 font-bold' : 'text-slate-400'}`}>
+                        <p className={`text-[10px] mt-0.5 truncate ${isSelected ? 'text-slate-950 font-bold' : 'text-slate-400'}`}>
                           {st.desc}
                         </p>
                       </div>
-                    </button>
+
+                      {/* Mini tags of teams */}
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {teamsAtThisStep.length > 0 ? (
+                          teamsAtThisStep.map((t) => (
+                            <span
+                              key={t.id}
+                              className={`text-[9px] font-mono px-1.5 py-0.5 rounded font-bold ${
+                                isSelected ? 'bg-slate-950 text-cyan-300' : 'bg-slate-900 text-cyan-300 border border-cyan-500/30'
+                              }`}
+                            >
+                              {t.teamNumber}팀
+                            </span>
+                          ))
+                        ) : (
+                          <span className={`text-[9px] font-mono ${isSelected ? 'text-slate-800' : 'text-slate-600'}`}>-</span>
+                        )}
+                      </div>
+                    </div>
                   );
                 })}
+              </div>
+
+              {/* 실시간 모둠별 수사 진행 현황 상세 카드 그리드 */}
+              <div className="pt-2 border-t border-cyan-500/20">
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-xs font-mono font-bold text-cyan-400 uppercase flex items-center gap-1.5">
+                    <Radio className="w-3.5 h-3.5 text-cyan-400" />
+                    모둠별 실시간 수사 현황 & 산출물 모니터링 ({selectedMonitoringStep ? `STEP 0${selectedMonitoringStep} 필터 적용 중` : '전체 모둠'})
+                  </span>
+                  <button
+                    onClick={() => setActiveTab('investigation_status')}
+                    className="text-xs text-cyan-400 hover:text-cyan-300 font-bold underline"
+                  >
+                    수사 현황 상세 탭으로 이동 →
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {(selectedMonitoringStep
+                    ? liveTeams.filter((t) => (t.currentStep || 1) === selectedMonitoringStep)
+                    : liveTeams
+                  ).map((t) => {
+                    const inv = investigationsMap[t.id];
+                    const teamEvs = allEvidence.filter((e) => e.teamId === t.id);
+                    const members = liveStudents.filter((s) => s.teamId === t.id);
+                    const progress = Math.min(100, Math.round(((t.currentStep || 1) / 6) * 100));
+
+                    return (
+                      <div
+                        key={t.id}
+                        className="p-4 bg-slate-900/90 rounded-2xl border border-slate-800 hover:border-cyan-500/50 transition flex flex-col justify-between gap-3 shadow-md group"
+                      >
+                        <div>
+                          {/* Card Header */}
+                          <div className="flex items-center justify-between gap-2 border-b border-slate-800 pb-2">
+                            <div className="flex items-center gap-2">
+                              <span className="w-7 h-7 rounded-lg bg-cyan-950 text-cyan-400 border border-cyan-500/40 flex items-center justify-center font-black text-xs font-mono">
+                                {t.teamNumber}
+                              </span>
+                              <div>
+                                <h4 className="text-xs font-black text-white">{t.teamName}</h4>
+                                <span className="text-[10px] text-slate-400 truncate block max-w-[140px]">
+                                  {t.topicTitle ? t.topicTitle : '사건 선택 대기'}
+                                </span>
+                              </div>
+                            </div>
+                            <span className="px-2 py-0.5 rounded-lg text-[10px] font-mono font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 shrink-0">
+                              STEP 0{t.currentStep || 1} / 06 ({progress}%)
+                            </span>
+                          </div>
+
+                          {/* Progress Bar */}
+                          <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden my-2.5">
+                            <div
+                              className="h-full bg-gradient-to-r from-cyan-500 to-sky-400 transition-all duration-300"
+                              style={{ width: `${progress}%` }}
+                            />
+                          </div>
+
+                          {/* Stats Checklist */}
+                          <div className="grid grid-cols-2 gap-1.5 text-[11px] font-medium text-slate-300 pt-1">
+                            <div className="flex items-center gap-1.5 bg-slate-950/60 px-2 py-1 rounded-lg border border-slate-800/80">
+                              <CheckCircle2 className={`w-3.5 h-3.5 ${inv?.initialVerdict ? 'text-emerald-400' : 'text-slate-600'}`} />
+                              <span>{inv?.initialVerdict ? '가설 수립 완료' : '가설 작성 중'}</span>
+                            </div>
+                            <div className="flex items-center gap-1.5 bg-slate-950/60 px-2 py-1 rounded-lg border border-slate-800/80">
+                              <FileText className="w-3.5 h-3.5 text-cyan-400" />
+                              <span>증거 카드 <strong>{teamEvs.length}건</strong></span>
+                            </div>
+                            <div className="flex items-center gap-1.5 bg-slate-950/60 px-2 py-1 rounded-lg border border-slate-800/80">
+                              <ShieldCheck className={`w-3.5 h-3.5 ${inv?.crossChecks?.length ? 'text-emerald-400' : 'text-slate-600'}`} />
+                              <span>교차검증 <strong>{inv?.crossChecks?.length || 0}건</strong></span>
+                            </div>
+                            <div className="flex items-center gap-1.5 bg-slate-950/60 px-2 py-1 rounded-lg border border-slate-800/80">
+                              <Scale className={`w-3.5 h-3.5 ${inv?.finalVerdict ? 'text-emerald-400' : 'text-slate-600'}`} />
+                              <span>{inv?.finalVerdict ? `판정: ${inv.finalVerdict}` : '최종 판정 대기'}</span>
+                            </div>
+                          </div>
+
+                          {/* Member avatars / roles */}
+                          <div className="mt-2.5 pt-2 border-t border-slate-800/60 flex items-center justify-between text-[11px]">
+                            <span className="text-slate-400 font-mono">수사관 ({members.length}명)</span>
+                            <div className="flex flex-wrap gap-1 justify-end max-w-[170px]">
+                              {members.map((m) => (
+                                <span
+                                  key={m.id}
+                                  className="px-1.5 py-0.5 rounded bg-slate-800 text-slate-200 text-[10px] font-medium"
+                                  title={`${m.name} (${m.role ? m.role : '역할 미배정'})`}
+                                >
+                                  {m.name}
+                                </span>
+                              ))}
+                              {members.length === 0 && (
+                                <span className="text-amber-400 text-[10px]">수사관 미배정</span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Card Quick Actions */}
+                        <div className="flex items-center gap-1.5 pt-2 border-t border-slate-800">
+                          <button
+                            onClick={() => {
+                              setActiveTab('investigation_status');
+                              setExpandedTeamDetails((prev) => ({ ...prev, [t.id]: true }));
+                            }}
+                            className="flex-1 py-1.5 bg-slate-800 hover:bg-slate-700 text-cyan-300 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1 border border-slate-700"
+                          >
+                            <FileText className="w-3.5 h-3.5" />
+                            <span>상세 열람</span>
+                          </button>
+                          <button
+                            onClick={() => {
+                              const invData = investigationsMap[t.id] || { teamId: t.id, updatedAt: Date.now() };
+                              openReportInNewWindow(t, invData, teamEvs, members, liveRoom);
+                            }}
+                            className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold transition flex items-center gap-1 border border-slate-700"
+                            title="소논문 보고서 새 창 열기"
+                          >
+                            <FileText className="w-3.5 h-3.5 text-cyan-400" />
+                            <span>보고서</span>
+                          </button>
+                          <button
+                            onClick={() => {
+                              setDirectHintTeam(t);
+                              setDirectHintInput('');
+                            }}
+                            className="px-2.5 py-1.5 bg-cyan-950 hover:bg-cyan-900 text-cyan-300 rounded-xl text-xs font-bold transition flex items-center gap-1 border border-cyan-500/40"
+                            title="이 모둠에 힌트/지시 전송"
+                          >
+                            <Radio className="w-3.5 h-3.5 text-cyan-400" />
+                            <span>힌트</span>
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             </div>
 

@@ -87,6 +87,41 @@ export default function App() {
     }
     return null;
   });
+
+  // Student Session Persistence (Auto-recover student session on re-entry/refresh)
+  const [savedStudentSession, setSavedStudentSession] = useState<{
+    roomCode: string;
+    roomId: string;
+    grade: number;
+    classNumber: number;
+    studentNumber: number;
+    name: string;
+    teamId?: string;
+  } | null>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('factlab_student_session');
+        if (saved) return JSON.parse(saved);
+      } catch (e) {
+        console.error('Failed to parse student session from storage', e);
+      }
+    }
+    return null;
+  });
+
+  // Pre-fill student login form if saved session exists
+  useEffect(() => {
+    if (savedStudentSession && !roomCodeInput) {
+      setRoomCodeInput(savedStudentSession.roomCode || '');
+      setStudentGrade(savedStudentSession.grade || 1);
+      setStudentClass(savedStudentSession.classNumber || 3);
+      setStudentNumber(savedStudentSession.studentNumber || 1);
+      setStudentName(savedStudentSession.name || '');
+      if (savedStudentSession.teamId) {
+        setSelectedTeamId(savedStudentSession.teamId);
+      }
+    }
+  }, [savedStudentSession]);
   const [teacherPasswordInput, setTeacherPasswordInput] = useState('');
   const [teacherAuthError, setTeacherAuthError] = useState('');
   const [authActionLoading, setAuthActionLoading] = useState(false);
@@ -354,6 +389,25 @@ export default function App() {
       const effectiveTeamId = registered.teamId || selectedTeamId;
       const targetTeam = availableTeams.find((t) => t.id === effectiveTeamId) || null;
       const inv = targetTeam ? await getInvestigation(targetTeam.id) : null;
+
+      // Save student session to local storage for automatic restoration on re-entry/refresh
+      if (typeof window !== 'undefined') {
+        try {
+          const sessionPayload = {
+            roomCode: cleanCode,
+            roomId: room.id,
+            grade: studentGrade,
+            classNumber: studentClass,
+            studentNumber: studentNumber,
+            name: studentName.trim(),
+            teamId: effectiveTeamId,
+          };
+          localStorage.setItem('factlab_student_session', JSON.stringify(sessionPayload));
+          setSavedStudentSession(sessionPayload);
+        } catch (e) {
+          console.warn('Failed to save student session to localStorage', e);
+        }
+      }
 
       setCurrentRoom(room);
       setCurrentStudent(registered);
@@ -638,6 +692,45 @@ export default function App() {
                 <Fingerprint className="w-5 h-5" />
               </div>
             </div>
+
+            {/* Saved Session Auto-Resume Floating Card */}
+            {savedStudentSession && (
+              <div className="p-3.5 bg-gradient-to-r from-[#0d2242] to-[#071326] rounded-2xl border border-cyan-500/50 flex flex-col gap-2 shadow-lg">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 text-xs text-cyan-300 font-bold">
+                    <span className="w-2 h-2 rounded-full bg-cyan-400 animate-ping" />
+                    <span>이전 수사 기록 발견</span>
+                  </div>
+                  <span className="text-[10px] font-mono text-slate-400">
+                    방 코드: {savedStudentSession.roomCode}
+                  </span>
+                </div>
+                <p className="text-xs text-slate-200">
+                  <strong className="text-cyan-200">{savedStudentSession.grade}학년 {savedStudentSession.classNumber}반 {savedStudentSession.studentNumber}번 {savedStudentSession.name}</strong> 수사관
+                </p>
+                <div className="flex items-center gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={(e) => handleStudentJoin(e as any)}
+                    className="flex-1 px-3 py-2 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 text-xs font-black transition shadow-[0_0_15px_rgba(6,182,212,0.4)] flex items-center justify-center gap-1.5"
+                  >
+                    <Sparkles className="w-3.5 h-3.5" />
+                    <span>⚡ 바로 이어서 수사하기</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      localStorage.removeItem('factlab_student_session');
+                      setSavedStudentSession(null);
+                    }}
+                    className="px-2.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-slate-200 text-[11px] font-medium border border-slate-700 transition"
+                    title="저장된 수사관 정보 지우기"
+                  >
+                    새로 입력
+                  </button>
+                </div>
+              </div>
+            )}
 
             <form onSubmit={handleStudentJoin} className="space-y-4">
               

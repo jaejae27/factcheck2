@@ -101,13 +101,6 @@ export const StudentApp: React.FC<StudentAppProps> = ({
     }
   }, [showReconnectBanner]);
 
-  // Synchronize when teacher broadcasts a new step
-  useEffect(() => {
-    if (room.activeStep && room.activeStep !== currentStep) {
-      setCurrentStep(room.activeStep);
-    }
-  }, [room.activeStep]);
-
   // Modals state
   const [showSurveyModal, setShowSurveyModal] = useState(false);
   const [showEvidenceModal, setShowEvidenceModal] = useState(false);
@@ -159,13 +152,56 @@ export const StudentApp: React.FC<StudentAppProps> = ({
   });
   const [reflectionSubmitted, setReflectionSubmitted] = useState(false);
 
-  // Local form buffer for auto-saving investigation data
-  const [localInv, setLocalInv] = useState<InvestigationData>(investigation);
+  // Local form buffer for auto-saving investigation data with local storage backup
+  const [localInv, setLocalInv] = useState<InvestigationData>(() => {
+    if (typeof window !== 'undefined' && team?.id) {
+      try {
+        const localDraftStr = localStorage.getItem(`factlab_inv_${team.id}`);
+        if (localDraftStr) {
+          const parsed = JSON.parse(localDraftStr);
+          if (parsed && (parsed.updatedAt || 0) >= (investigation?.updatedAt || 0)) {
+            return { ...investigation, ...parsed };
+          }
+        }
+      } catch (e) {
+        console.warn('Failed to load local draft', e);
+      }
+    }
+    return investigation;
+  });
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
-    setLocalInv(investigation);
+    if (investigation) {
+      setLocalInv((prev) => {
+        // Keep local edits if they are newer
+        if ((prev.updatedAt || 0) > (investigation.updatedAt || 0)) {
+          return prev;
+        }
+        return investigation;
+      });
+    }
   }, [investigation]);
+
+  // Flush auto-save on page exit or beforeunload
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      if (localInv && team?.id) {
+        try {
+          localStorage.setItem(`factlab_inv_${team.id}`, JSON.stringify(localInv));
+          saveInvestigation(team.id, localInv).catch(() => {});
+        } catch (e) {}
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+    };
+  }, [localInv, team?.id]);
 
   // Load received peer reviews when entering step 6
   useEffect(() => {
@@ -185,11 +221,20 @@ export const StudentApp: React.FC<StudentAppProps> = ({
     }
   }, [currentStep, reflectionSubmitted]);
 
-  // Auto-Save helper with debounce
+  // Auto-Save helper with debounce and local storage backup
   const triggerAutoSave = (updates: Partial<InvestigationData>) => {
     setSaveStatus('saving');
-    const merged = { ...localInv, ...updates };
+    const merged = { ...localInv, ...updates, updatedAt: Date.now() };
     setLocalInv(merged);
+
+    // Save immediate local draft
+    if (typeof window !== 'undefined' && team?.id) {
+      try {
+        localStorage.setItem(`factlab_inv_${team.id}`, JSON.stringify(merged));
+      } catch (e) {
+        console.warn('Local draft write failed', e);
+      }
+    }
 
     if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
     saveTimeoutRef.current = setTimeout(async () => {
@@ -391,22 +436,6 @@ export const StudentApp: React.FC<StudentAppProps> = ({
             </button>
           </div>
         </header>
-
-        {/* Teacher Step Mismatch Banner (Non-dimming helper) */}
-        {room.activeStep && room.activeStep !== currentStep && (
-          <div className="bg-[#1f1504] border-b border-amber-500/50 px-4 sm:px-8 py-2 flex items-center justify-between text-xs text-amber-200 font-bold z-30 shadow">
-            <div className="flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse" />
-              <span>선생님의 실시간 수업 진행 단계는 <strong>Step {room.activeStep}</strong>입니다. (현재 이전/이후 단계 열람 중)</span>
-            </div>
-            <button
-              onClick={() => handleStepChange(room.activeStep!)}
-              className="px-3 py-1 rounded-lg bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-xs transition shadow flex items-center gap-1 shrink-0"
-            >
-              <span>⚡ 실시간 수업 단계로 복귀</span>
-            </button>
-          </div>
-        )}
 
         {/* 6-Step Progress Stepper - Ultra Crisp and Legible */}
         <div className="bg-[#081528] border-b border-cyan-500/20 px-4 sm:px-8 py-2.5 overflow-x-auto select-none shadow-sm">
