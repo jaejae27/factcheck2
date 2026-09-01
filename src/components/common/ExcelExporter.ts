@@ -158,6 +158,7 @@ export function exportClassroomExcel(params: {
       평균평점: pr.averageScore,
       질문유형: pr.questionCategory,
       동료질문: pr.peerQuestion,
+      칭찬_인상깊었던점: pr.compliment || '',
     };
   });
   const ws5 = XLSX.utils.json_to_sheet(peerEvalData);

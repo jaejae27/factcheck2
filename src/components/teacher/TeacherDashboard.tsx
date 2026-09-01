@@ -1617,6 +1617,160 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
                 교사 평가 및 훈장 저장하기
               </button>
             </form>
+
+            {/* CLASS-WIDE PEER REVIEW SUMMARY & MATRIX */}
+            <div className="p-6 bg-slate-900/90 rounded-3xl border border-slate-800 space-y-5 shadow-lg">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-4">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-indigo-500/20 text-indigo-300 border border-indigo-500/40">
+                      PEER REVIEW MATRIX
+                    </span>
+                    <h4 className="text-base font-black text-white">
+                      전 모둠 상호 동료평가 집계 및 피드백 현황 ({peerReviews.length}건 수신)
+                    </h4>
+                  </div>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    학생들이 자기 모둠을 제외한 다른 모든 수사팀에 남긴 5대 루브릭 척도 평점과 심층 질문 내역입니다.
+                  </p>
+                </div>
+
+                <div className="px-3 py-1.5 bg-slate-950 rounded-xl border border-slate-800 text-xs">
+                  <span className="text-slate-400">총 평가 건수: </span>
+                  <strong className="text-indigo-400 font-mono font-black">{peerReviews.length}건</strong>
+                </div>
+              </div>
+
+              {liveTeams.length === 0 ? (
+                <div className="p-8 text-center bg-slate-950/60 rounded-2xl border border-slate-800 text-xs text-slate-400">
+                  등록된 모둠이 없습니다.
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                  {liveTeams.map((t) => {
+                    const teamReceivedReviews = peerReviews.filter((pr) => pr.targetTeamId === t.id);
+                    const avgScore =
+                      teamReceivedReviews.length > 0
+                        ? (
+                            teamReceivedReviews.reduce((sum, r) => sum + r.averageScore, 0) /
+                            teamReceivedReviews.length
+                          ).toFixed(1)
+                        : '-';
+
+                    // Breakdown of rubrics
+                    const rubrics = [
+                      {
+                        name: '출처신뢰도',
+                        val: teamReceivedReviews.length > 0
+                          ? (teamReceivedReviews.reduce((sum, r) => sum + (r.scores?.appropriateSources || 0), 0) / teamReceivedReviews.length).toFixed(1)
+                          : '-',
+                      },
+                      {
+                        name: '교차검증',
+                        val: teamReceivedReviews.length > 0
+                          ? (teamReceivedReviews.reduce((sum, r) => sum + (r.scores?.crossVerification || 0), 0) / teamReceivedReviews.length).toFixed(1)
+                          : '-',
+                      },
+                      {
+                        name: '반증탐색',
+                        val: teamReceivedReviews.length > 0
+                          ? (teamReceivedReviews.reduce((sum, r) => sum + (r.scores?.counterEvidenceCheck || 0), 0) / teamReceivedReviews.length).toFixed(1)
+                          : '-',
+                      },
+                      {
+                        name: '논리판정',
+                        val: teamReceivedReviews.length > 0
+                          ? (teamReceivedReviews.reduce((sum, r) => sum + (r.scores?.evidenceBasedVerdict || 0), 0) / teamReceivedReviews.length).toFixed(1)
+                          : '-',
+                      },
+                      {
+                        name: '전달력',
+                        val: teamReceivedReviews.length > 0
+                          ? (teamReceivedReviews.reduce((sum, r) => sum + (r.scores?.clarityAndUnderstanding || 0), 0) / teamReceivedReviews.length).toFixed(1)
+                          : '-',
+                      },
+                    ];
+
+                    return (
+                      <div
+                        key={t.id}
+                        className="p-4 bg-slate-950/70 rounded-2xl border border-slate-800 space-y-3 flex flex-col justify-between hover:border-indigo-500/40 transition"
+                      >
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <span className="w-6 h-6 rounded-lg bg-indigo-950 text-indigo-300 font-mono font-bold text-xs flex items-center justify-center border border-indigo-500/40">
+                                {t.teamNumber}
+                              </span>
+                              <h5 className="text-xs font-bold text-white">{t.teamName}</h5>
+                            </div>
+
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-[11px] font-mono text-amber-400 font-bold bg-amber-950/50 px-2 py-0.5 rounded-lg border border-amber-500/30">
+                                ★ {avgScore} / 5.0
+                              </span>
+                              <span className="text-[10px] text-slate-400">
+                                ({teamReceivedReviews.length}명 평가)
+                              </span>
+                            </div>
+                          </div>
+
+                          <p className="text-[11px] text-slate-400 line-clamp-1">
+                            {t.topicTitle ? `주제: ${t.topicTitle}` : t.claim}
+                          </p>
+
+                          {/* Rubrics pills */}
+                          <div className="grid grid-cols-5 gap-1 pt-1">
+                            {rubrics.map((rb) => (
+                              <div
+                                key={rb.name}
+                                className="bg-slate-900/90 p-1.5 rounded-lg border border-slate-800 text-center"
+                              >
+                                <span className="text-[9px] text-slate-400 block truncate">{rb.name}</span>
+                                <span className="text-[11px] font-mono font-bold text-indigo-300">{rb.val}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Received Questions & Feedback */}
+                        {teamReceivedReviews.length > 0 ? (
+                          <div className="space-y-1.5 pt-2 border-t border-slate-800/80 max-h-36 overflow-y-auto pr-1">
+                            {teamReceivedReviews.map((pr) => (
+                              <div
+                                key={pr.id}
+                                className="p-2 bg-slate-900/60 rounded-xl border border-slate-800/70 text-[11px] space-y-0.5"
+                              >
+                                <div className="flex items-center justify-between text-[10px]">
+                                  <span className="text-slate-300 font-bold">
+                                    {pr.fromStudentName} 수사관
+                                  </span>
+                                  <span className="text-indigo-400 font-mono">
+                                    ★ {pr.averageScore}
+                                  </span>
+                                </div>
+                                <p className="text-slate-300 leading-snug">
+                                  Q. {pr.peerQuestion}
+                                </p>
+                                {pr.compliment && (
+                                  <p className="text-[10px] text-emerald-300">
+                                    ✨ {pr.compliment}
+                                  </p>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="p-3 text-center bg-slate-900/40 rounded-xl text-[11px] text-slate-500">
+                            아직 수신된 동료 평가가 없습니다.
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           </div>
         )}
 

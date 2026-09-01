@@ -44,6 +44,16 @@ export interface TopicItem {
   counterEvidenceClue: string;
   isTrending?: boolean;
   trendingBadge?: string;
+  isKosisRecommended?: boolean;
+  kosisTip?: {
+    tableTitle: string;
+    searchKeywords: string;
+    description: string;
+  };
+  bigkindsTip?: {
+    query: string;
+    analysisPoint: string;
+  };
 }
 
 export interface InterestSurveyAnswers {
@@ -177,7 +187,7 @@ export interface EvidenceCard {
   studentRole?: StudentRole;
   evidenceNumber: number;
   title: string;
-  sourceType?: 'article' | 'research_paper' | 'gov_agency' | 'expert_interview' | 'statistic' | 'other';
+  sourceType?: 'article' | 'research_paper' | 'gov_agency' | 'expert_interview' | 'statistic' | 'kosis_stat' | 'bigkinds_news' | 'other';
   publisher: string;
   author?: string;
   sourceUrl?: string;
@@ -235,6 +245,7 @@ export interface PeerReview {
   averageScore: number;
   peerQuestion: string;
   questionCategory: 'source' | 'evidence' | 'context' | 'judgment' | 'additional';
+  compliment?: string;
   createdAt: number;
 }
 

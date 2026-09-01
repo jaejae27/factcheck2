@@ -185,13 +185,15 @@ export const EvidenceCardModal: React.FC<EvidenceCardModalProps> = ({
               <select
                 value={sourceType}
                 onChange={(e) => setSourceType(e.target.value as any)}
-                className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+                className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white font-medium"
               >
-                <option value="research_paper">🔬 학술 논문/연구</option>
-                <option value="gov_agency">🏛️ 정부/공공기관 통계</option>
-                <option value="article">📰 언론사 팩트체크 기사</option>
-                <option value="expert_interview">👨‍⚕️ 전문가 성명/인터뷰</option>
-                <option value="statistic">📊 전문 통계 포털</option>
+                <option value="kosis_stat">📊 KOSIS 국가통계포털 (공식 통계표)</option>
+                <option value="bigkinds_news">📰 빅카인즈 뉴스 빅데이터 (언론 보도)</option>
+                <option value="gov_agency">🏛️ 정부/공공기관 발표자료</option>
+                <option value="research_paper">🔬 학술 논문/학회 연구 보고서</option>
+                <option value="article">🗞️ 언론사 팩트체크 기사</option>
+                <option value="expert_interview">👨‍⚕️ 전문가 성명/자문 인터뷰</option>
+                <option value="statistic">📈 기타 전문 통계 포털</option>
                 <option value="other">📑 기타 공식 자료</option>
               </select>
             </div>

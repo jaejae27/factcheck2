@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import confetti from 'canvas-confetti';
 import {
   ShieldAlert,
@@ -48,6 +48,7 @@ import {
   submitPeerReview,
   submitStudentReflection,
   getPeerReviewsForTeam,
+  subscribePeerReviews,
 } from '../../lib/db';
 import { InterestSurveyModal } from './InterestSurveyModal';
 import { EvidenceCardModal } from './EvidenceCardModal';
@@ -111,19 +112,8 @@ export const StudentApp: React.FC<StudentAppProps> = ({
   const [helpReasonInput, setHelpReasonInput] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
 
-  // Peer review target & form state
-  const [peerTargetTeamId, setPeerTargetTeamId] = useState('');
-  const [peerScores, setPeerScores] = useState({
-    appropriateSources: 5,
-    crossVerification: 5,
-    counterEvidenceCheck: 5,
-    evidenceBasedVerdict: 5,
-    clarityAndUnderstanding: 5,
-  });
-  const [peerQuestion, setPeerQuestion] = useState('');
-  const [peerQuestionCategory, setPeerQuestionCategory] = useState<PeerReview['questionCategory']>('source');
-  const [receivedPeerReviews, setReceivedPeerReviews] = useState<PeerReview[]>([]);
-  const [peerSubmitted, setPeerSubmitted] = useState(false);
+  // Real-time Peer Reviews in room (all teams)
+  const [roomPeerReviews, setRoomPeerReviews] = useState<PeerReview[]>([]);
 
   // Reflection form state
   const [reflectionData, setReflectionData] = useState<Omit<StudentReflection, 'id' | 'submittedAt'>>({
@@ -203,12 +193,34 @@ export const StudentApp: React.FC<StudentAppProps> = ({
     };
   }, [localInv, team?.id]);
 
-  // Load received peer reviews when entering step 6
+  // Real-time Peer Reviews subscription
   useEffect(() => {
-    if (currentStep >= 5) {
-      getPeerReviewsForTeam(room.id, team.id).then(setReceivedPeerReviews);
+    if (room?.id) {
+      const unsub = subscribePeerReviews(room.id, (reviews) => {
+        setRoomPeerReviews(reviews);
+      });
+      return () => unsub();
     }
-  }, [currentStep, room.id, team.id]);
+  }, [room?.id]);
+
+  // Derived reviews: written by this student
+  const mySubmittedPeerReviews = useMemo(() => {
+    return roomPeerReviews.filter((pr) => pr.fromStudentId === student.id);
+  }, [roomPeerReviews, student.id]);
+
+  // Map of targetTeamId -> PeerReview submitted by this student
+  const mySubmittedMap = useMemo(() => {
+    const map: Record<string, PeerReview> = {};
+    mySubmittedPeerReviews.forEach((pr) => {
+      map[pr.targetTeamId] = pr;
+    });
+    return map;
+  }, [mySubmittedPeerReviews]);
+
+  // Reviews received by our team from other teams
+  const receivedPeerReviews = useMemo(() => {
+    return roomPeerReviews.filter((pr) => pr.targetTeamId === team.id);
+  }, [roomPeerReviews, team.id]);
 
   // Trigger celebration on Case Closed
   useEffect(() => {
@@ -287,22 +299,34 @@ export const StudentApp: React.FC<StudentAppProps> = ({
     setShowHelpModal(false);
   };
 
-  const handlePeerReviewSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!peerTargetTeamId || !peerQuestion.trim()) return;
-    const avg = (Object.values(peerScores) as number[]).reduce((a: number, b: number) => a + b, 0) / 5;
+  // Submit single peer review for any specific target team
+  const handleSinglePeerReviewSubmit = async (params: {
+    targetTeamId: string;
+    scores: {
+      appropriateSources: number;
+      crossVerification: number;
+      counterEvidenceCheck: number;
+      evidenceBasedVerdict: number;
+      clarityAndUnderstanding: number;
+    };
+    peerQuestion: string;
+    questionCategory: PeerReview['questionCategory'];
+    compliment?: string;
+  }) => {
+    const avg =
+      (Object.values(params.scores) as number[]).reduce((a: number, b: number) => a + b, 0) / 5;
     await submitPeerReview({
       roomId: room.id,
       fromTeamId: team.id,
       fromStudentId: student.id,
       fromStudentName: student.name,
-      targetTeamId: peerTargetTeamId,
-      scores: peerScores,
+      targetTeamId: params.targetTeamId,
+      scores: params.scores,
       averageScore: Number(avg.toFixed(1)),
-      peerQuestion: peerQuestion.trim(),
-      questionCategory: peerQuestionCategory,
+      peerQuestion: params.peerQuestion.trim(),
+      questionCategory: params.questionCategory,
+      compliment: params.compliment?.trim(),
     });
-    setPeerSubmitted(true);
   };
 
 
@@ -606,16 +630,8 @@ export const StudentApp: React.FC<StudentAppProps> = ({
             allTeams={allTeams}
             localInv={localInv}
             receivedPeerReviews={receivedPeerReviews}
-            peerSubmitted={peerSubmitted}
-            peerTargetTeamId={peerTargetTeamId}
-            setPeerTargetTeamId={setPeerTargetTeamId}
-            peerScores={peerScores}
-            setPeerScores={setPeerScores}
-            peerQuestionCategory={peerQuestionCategory}
-            setPeerQuestionCategory={setPeerQuestionCategory}
-            peerQuestion={peerQuestion}
-            setPeerQuestion={setPeerQuestion}
-            handlePeerReviewSubmit={handlePeerReviewSubmit}
+            mySubmittedMap={mySubmittedMap}
+            onSubmitPeerReview={handleSinglePeerReviewSubmit}
             reflectionSubmitted={reflectionSubmitted}
             reflectionData={reflectionData}
             setReflectionData={setReflectionData}
@@ -633,6 +649,9 @@ export const StudentApp: React.FC<StudentAppProps> = ({
       {/* MODALS */}
       {showSurveyModal && (
         <InterestSurveyModal
+          student={student}
+          team={team}
+          allStudents={allStudents}
           onSelectTopic={handleSelectTopic}
           onClose={() => setShowSurveyModal(false)}
         />
