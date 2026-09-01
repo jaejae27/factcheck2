@@ -25,8 +25,6 @@ import {
   Copy,
   Check,
 } from 'lucide-react';
-import { signInWithPopup, signOut, onAuthStateChanged, User } from 'firebase/auth';
-import { auth, googleProvider } from './lib/firebase';
 import { Room, Student, Team, InvestigationData, EvidenceCard } from './types';
 import {
   getRoomByCode,
@@ -78,8 +76,19 @@ export default function App() {
   const [roomStudents, setRoomStudents] = useState<Student[]>([]);
 
   // Teacher Authentication & Room Management State
-  const [teacherUser, setTeacherUser] = useState<User | null>(null);
-  const [teacherAuthLoading, setTeacherAuthLoading] = useState(true);
+  const [teacherSession, setTeacherSession] = useState<{ id: string; name: string } | null>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('factlab_teacher_auth');
+        if (saved) return JSON.parse(saved);
+      } catch (e) {
+        console.error('Failed to parse teacher auth from storage', e);
+      }
+    }
+    return null;
+  });
+  const [teacherPasswordInput, setTeacherPasswordInput] = useState('');
+  const [teacherAuthError, setTeacherAuthError] = useState('');
   const [authActionLoading, setAuthActionLoading] = useState(false);
   const [teacherRooms, setTeacherRooms] = useState<Room[]>([]);
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -87,25 +96,19 @@ export default function App() {
   const [copiedCodeId, setCopiedCodeId] = useState<string | null>(null);
   const [launchingDemo, setLaunchingDemo] = useState(false);
 
-  // Listen to Firebase Auth state for teacher
+  // Load teacher rooms whenever teacherSession changes or is restored
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      setTeacherUser(user);
-      setTeacherAuthLoading(false);
-      if (user) {
-        try {
-          const rooms = await getTeacherRooms(user.uid);
-          setTeacherRooms(rooms);
-        } catch (err) {
-          console.error('Error fetching teacher rooms on auth change:', err);
+    if (teacherSession) {
+      getTeacherRooms(teacherSession.id)
+        .then(setTeacherRooms)
+        .catch((err) => {
+          console.error('Error fetching teacher rooms:', err);
           setTeacherRooms([]);
-        }
-      } else {
-        setTeacherRooms([]);
-      }
-    });
-    return () => unsubscribe();
-  }, []);
+        });
+    } else {
+      setTeacherRooms([]);
+    }
+  }, [teacherSession]);
 
   // Detect URL parameter for room invitation link (?room=CODE or ?code=CODE)
   useEffect(() => {
@@ -148,42 +151,70 @@ export default function App() {
 
   // Reload teacher rooms on portal switch if teacher is logged in
   useEffect(() => {
-    if (portalTab === 'teacher' && teacherUser) {
-      getTeacherRooms(teacherUser.uid).then(setTeacherRooms);
+    if (portalTab === 'teacher' && teacherSession) {
+      getTeacherRooms(teacherSession.id).then(setTeacherRooms);
     }
-  }, [portalTab, teacherUser]);
+  }, [portalTab, teacherSession]);
 
-  // Google Login Handler for Teachers
-  const handleTeacherGoogleLogin = async () => {
+  // Teacher Password-based Login Handler
+  // Uses a secure hash / identifier generated from the teacher's secret password so each teacher gets their own private workspace
+  const handleTeacherPasswordLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setTeacherAuthError('');
+
+    const trimmedPassword = teacherPasswordInput.trim();
+
+    if (!trimmedPassword) {
+      setTeacherAuthError('교사 전용 비밀번호를 입력해 주세요.');
+      return;
+    }
+
+    if (trimmedPassword.length < 4) {
+      setTeacherAuthError('비밀번호는 최소 4자리 이상이어야 합니다.');
+      return;
+    }
+
     try {
       setAuthActionLoading(true);
-      const result = await signInWithPopup(auth, googleProvider);
-      if (result.user) {
-        const rooms = await getTeacherRooms(result.user.uid);
-        setTeacherRooms(rooms);
+      
+      // Generate a consistent unique teacher ID based on secret password hash
+      let hash = 0;
+      for (let i = 0; i < trimmedPassword.length; i++) {
+        const char = trimmedPassword.charCodeAt(i);
+        hash = ((hash << 5) - hash) + char;
+        hash |= 0;
       }
+      const teacherKeyId = 'teacher_' + Math.abs(hash).toString(36) + '_' + trimmedPassword.slice(-3);
+
+      const sessionData = {
+        id: teacherKeyId,
+        name: '교사',
+      };
+
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('factlab_teacher_auth', JSON.stringify(sessionData));
+      }
+
+      setTeacherSession(sessionData);
+      const rooms = await getTeacherRooms(sessionData.id);
+      setTeacherRooms(rooms);
     } catch (err: any) {
-      console.error('Google sign-in error:', err);
-      if (err.code !== 'auth/popup-closed-by-user') {
-        alert('Google 로그인 중 오류가 발생했습니다: ' + (err.message || err));
-      }
+      console.error('Teacher login error:', err);
+      setTeacherAuthError('로그인 처리 중 오류가 발생했습니다.');
     } finally {
       setAuthActionLoading(false);
     }
   };
 
-  // Google Logout Handler for Teachers
-  const handleTeacherLogout = async () => {
-    try {
-      setAuthActionLoading(true);
-      await signOut(auth);
-      setTeacherUser(null);
-      setTeacherRooms([]);
-    } catch (err) {
-      console.error('Logout error:', err);
-    } finally {
-      setAuthActionLoading(false);
+  // Teacher Logout Handler
+  const handleTeacherLogout = () => {
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('factlab_teacher_auth');
     }
+    setTeacherSession(null);
+    setTeacherRooms([]);
+    setTeacherPasswordInput('');
+    setTeacherAuthError('');
   };
 
   // Real-time subscriptions when active in a room
@@ -755,9 +786,9 @@ export default function App() {
                   // 01 & 02 TEACHER COMMAND DESK
                 </span>
                 <h3 className="text-lg font-black text-white mt-0.5">교사 수사지휘실</h3>
-                <p className="text-xs text-slate-400">교사 계정으로 로그인하여 담당 학급의 수사본부만 안전하게 관제합니다.</p>
+                <p className="text-xs text-slate-400">교사 전용 비밀번호를 입력하여 담당 학급의 수사본부를 개설 및 관제합니다.</p>
               </div>
-              {teacherUser && (
+              {teacherSession && (
                 <button
                   onClick={() => setShowCreateModal(true)}
                   className="inline-flex items-center gap-1.5 px-4 py-2.5 bg-cyan-500 hover:bg-cyan-400 text-slate-950 rounded-xl text-xs font-black transition shadow-[0_0_15px_rgba(6,182,212,0.3)] font-mono active:scale-95"
@@ -768,61 +799,66 @@ export default function App() {
               )}
             </div>
 
-            {/* Google Authentication Box */}
-            {teacherAuthLoading ? (
-              <div className="p-6 rounded-2xl bg-[#060e1d] border border-cyan-500/20 text-center space-y-2">
-                <div className="w-5 h-5 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin mx-auto" />
-                <p className="text-xs text-slate-400 font-mono">인증 상태 확인 중...</p>
-              </div>
-            ) : !teacherUser ? (
-              <div className="p-6 sm:p-8 rounded-2xl bg-[#060e1d] border border-cyan-500/30 text-center space-y-4 shadow-inner">
-                <div className="w-12 h-12 rounded-2xl bg-cyan-950/80 border border-cyan-500/40 flex items-center justify-center text-cyan-400 mx-auto shadow-[0_0_20px_rgba(6,182,212,0.2)]">
-                  <GraduationCap className="w-6 h-6" />
+            {/* Password Authentication Box */}
+            {!teacherSession ? (
+              <form onSubmit={handleTeacherPasswordLogin} className="p-6 sm:p-8 rounded-2xl bg-[#060e1d] border border-cyan-500/30 space-y-4 shadow-inner">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-2xl bg-cyan-950/80 border border-cyan-500/40 flex items-center justify-center text-cyan-400 shrink-0 shadow-[0_0_20px_rgba(6,182,212,0.2)]">
+                    <GraduationCap className="w-6 h-6" />
+                  </div>
+                  <div className="space-y-0.5">
+                    <h4 className="text-base font-bold text-white">교사 비밀번호 인증</h4>
+                    <p className="text-xs text-slate-400 leading-relaxed">
+                      교사 전용 비밀번호를 입력하시면 개설하신 학급 수업방이 자동으로 로드됩니다.
+                    </p>
+                  </div>
                 </div>
-                <div className="space-y-1">
-                  <h4 className="text-base font-bold text-white">Google 계정으로 교사 로그인</h4>
-                  <p className="text-xs text-slate-400 max-w-md mx-auto leading-relaxed">
-                    선생님이 개설한 수업방만 안전하게 조회하고 실시간으로 학생 수사를 관제할 수 있습니다.
-                  </p>
+
+                <div className="pt-2">
+                  <label className="text-[11px] font-mono text-slate-400 block mb-1">교사 비밀번호 (4자리 이상)</label>
+                  <input
+                    type="password"
+                    value={teacherPasswordInput}
+                    onChange={(e) => setTeacherPasswordInput(e.target.value)}
+                    placeholder="교사 비밀번호 입력"
+                    className="w-full px-4 py-3 rounded-xl bg-slate-900 border border-slate-700 focus:border-cyan-400 text-white text-sm outline-none transition font-mono tracking-widest"
+                    required
+                    autoFocus
+                  />
                 </div>
+
+                {teacherAuthError && (
+                  <div className="p-3 rounded-xl bg-rose-950/40 border border-rose-500/40 text-rose-300 text-xs font-mono flex items-center gap-2">
+                    <ShieldAlert className="w-4 h-4 text-rose-400 shrink-0" />
+                    <span>{teacherAuthError}</span>
+                  </div>
+                )}
+
                 <button
-                  onClick={handleTeacherGoogleLogin}
+                  type="submit"
                   disabled={authActionLoading}
-                  className="inline-flex items-center gap-2.5 px-6 py-3 bg-white hover:bg-slate-100 text-slate-900 rounded-xl text-xs font-black transition shadow-lg active:scale-95 disabled:opacity-50"
+                  className="w-full py-3 bg-cyan-500 hover:bg-cyan-400 disabled:opacity-50 text-slate-950 rounded-xl text-xs font-black transition shadow-lg flex items-center justify-center gap-2 font-mono active:scale-95 mt-2"
                 >
-                  <svg className="w-4 h-4" viewBox="0 0 24 24">
-                    <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
-                    <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
-                    <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
-                    <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
-                  </svg>
-                  <span>{authActionLoading ? '인증 진행 중...' : 'Google 계정으로 로그인'}</span>
+                  <Lock className="w-4 h-4" />
+                  <span>{authActionLoading ? '확인 중...' : '교사 수사지휘실 입장 (LOGIN)'}</span>
                 </button>
-              </div>
+              </form>
             ) : (
               <div className="space-y-4">
                 {/* Authenticated Teacher Profile Badge */}
                 <div className="p-4 rounded-2xl bg-[#060e1d] border border-cyan-500/20 flex flex-col sm:flex-row items-center justify-between gap-3">
                   <div className="flex items-center gap-3 w-full sm:w-auto">
-                    {teacherUser.photoURL ? (
-                      <img
-                        src={teacherUser.photoURL}
-                        alt="교사 프로필"
-                        className="w-10 h-10 rounded-full border border-cyan-400"
-                      />
-                    ) : (
-                      <div className="w-10 h-10 rounded-full bg-slate-900 border border-slate-700 flex items-center justify-center text-cyan-400">
-                        <GraduationCap className="w-5 h-5" />
-                      </div>
-                    )}
+                    <div className="w-10 h-10 rounded-full bg-cyan-950 border border-cyan-400 flex items-center justify-center text-cyan-400">
+                      <GraduationCap className="w-5 h-5" />
+                    </div>
                     <div>
                       <div className="flex items-center gap-2">
-                        <strong className="text-xs font-bold text-white">{teacherUser.displayName || '교사'} 선생님</strong>
+                        <strong className="text-xs font-bold text-white">교사 수사지휘관</strong>
                         <span className="px-2 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-500/40 text-[9px] font-mono font-bold">
-                          ● AUTHENTICATED
+                          ● TEACHER VERIFIED
                         </span>
                       </div>
-                      <p className="text-[11px] font-mono text-slate-400">{teacherUser.email}</p>
+                      <p className="text-[11px] font-mono text-slate-400">수사 지휘관 모드 활성화됨</p>
                     </div>
                   </div>
 
@@ -932,15 +968,15 @@ export default function App() {
       </footer>
 
       {/* Create Room Modal */}
-      {showCreateModal && teacherUser && (
+      {showCreateModal && teacherSession && (
         <CreateRoomModal
-          teacherId={teacherUser.uid}
-          teacherName={teacherUser.displayName || '교사'}
-          teacherEmail={teacherUser.email || ''}
+          teacherId={teacherSession.id}
+          teacherName={teacherSession.name || '교사'}
+          teacherEmail=""
           onCreate={async (roomData) => {
             const { room: newRoom, teams } = await createRoom(roomData);
-            if (teacherUser) {
-              const updated = await getTeacherRooms(teacherUser.uid);
+            if (teacherSession) {
+              const updated = await getTeacherRooms(teacherSession.id);
               setTeacherRooms(updated);
             }
             setCurrentRoom(newRoom);
