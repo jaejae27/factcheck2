@@ -141,6 +141,11 @@ export const ReportModal: React.FC<ReportExporterProps> = ({
             <p className="text-sm font-medium text-slate-600">
               {room.grade}학년 {room.classNumber}반 · {team.teamName} · 수사 완료일: {new Date(team.lastActive).toLocaleDateString('ko-KR')}
             </p>
+            {showStudentNames && teamMembers.length > 0 && (
+              <p className="text-xs text-slate-500 font-medium pt-1">
+                수사관: {teamMembers.map(m => `${m.studentNumber}번 ${m.name}${m.role ? ` (${ROLE_DEFINITIONS[m.role]?.title || m.role})` : ''}`).join(', ')}
+              </p>
+            )}
           </div>
 
           {/* Section 1: 사건 개요 및 연구 질문 */}

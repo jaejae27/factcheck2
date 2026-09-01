@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { Student, Team, Room } from '../../types';
 import { updateStudentTeam, updateStudentRole } from '../../lib/db';
+import { ROLE_DEFINITIONS } from '../../data/topics';
 
 interface StudentStatusModalProps {
   room: Room;
@@ -228,7 +229,7 @@ export const StudentStatusModal: React.FC<StudentStatusModalProps> = ({
                     {/* Role & Actions */}
                     <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between gap-2 text-xs">
                       <span className="text-slate-400 text-[11px]">
-                        역할: <strong className="text-slate-200">{s.role || '선택 대기'}</strong>
+                        역할: <strong className="text-slate-200">{(s.role && ROLE_DEFINITIONS[s.role]?.title) || s.role || '선택 대기'}</strong>
                       </span>
 
                       {/* Team Assignment trigger/selector */}

@@ -42,6 +42,7 @@ import {
   updateTeam,
   saveInvestigation,
   addEvidenceCard,
+  updateEvidenceCard,
   deleteEvidenceCard,
   sendHelpRequest,
   submitPeerReview,
@@ -614,12 +615,12 @@ export const StudentApp: React.FC<StudentAppProps> = ({
           roomId={room.id}
           studentId={student.id}
           studentName={student.name}
-          studentRole={student.role || 'source_tracker'}
+          studentRole={student.role || 'source_verifier'}
           existingCard={editingCard}
           evidenceNumber={editingCard?.evidenceNumber || evidenceList.length + 1}
           onSave={async (data) => {
             if (editingCard) {
-              // update existing
+              await updateEvidenceCard(editingCard.id, data);
             } else {
               await addEvidenceCard(data);
             }

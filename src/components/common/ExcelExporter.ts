@@ -11,6 +11,7 @@ import {
   TeacherObservation,
   SchoolRecordDraft,
 } from '../../types';
+import { ROLE_DEFINITIONS } from '../../data/topics';
 
 export function exportClassroomExcel(params: {
   room: Room;
@@ -54,7 +55,7 @@ export function exportClassroomExcel(params: {
       번호: s.studentNumber,
       이름: s.name,
       소속모둠: team ? team.teamName : '미배정',
-      역할: s.role || '미선택',
+      역할: (s.role && ROLE_DEFINITIONS[s.role]?.title) || s.role || '미선택',
       탐구주제: team?.topicTitle || '',
       모둠진행률: team ? `${team.progressPercent || 0}%` : '0%',
       등록증거수: teamEvCount,

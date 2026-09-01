@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { X, Upload, Link2, FileText, CheckCircle, ShieldAlert, Sparkles, Image as ImageIcon } from 'lucide-react';
 import { EvidenceCard, StudentRole } from '../../types';
 import { uploadEvidenceImage } from '../../lib/db';
+import { ROLE_DEFINITIONS } from '../../data/topics';
 
 interface EvidenceCardModalProps {
   teamId: string;
@@ -90,13 +91,13 @@ export const EvidenceCardModal: React.FC<EvidenceCardModalProps> = ({
         keyMetrics: keyMetrics.trim(),
         limitations: limitations.trim(),
         reliabilityReason: reliabilityReason.trim(),
-        imageUrl: imageUrl || undefined,
-        imageCaption: imageCaption.trim() || undefined,
+        imageUrl: imageUrl || '',
+        imageCaption: imageCaption.trim() || '',
       });
       onClose();
     } catch (err: any) {
       console.error('Save card error:', err);
-      setErrorMsg('증거 카드 저장 중 오류가 발생했습니다.');
+      setErrorMsg(`증거 카드 저장 중 오류가 발생했습니다: ${err?.message || '잠시 후 다시 시도해 주세요.'}`);
     } finally {
       setIsSaving(false);
     }
@@ -117,7 +118,7 @@ export const EvidenceCardModal: React.FC<EvidenceCardModalProps> = ({
                 {existingCard ? '증거 카드 수정' : `새 증거 카드 #${evidenceNumber} 등록`}
               </h3>
               <p className="text-xs text-slate-500">
-                작성자: {studentName} ({studentRole === 'source_tracker' ? '출처 추적관' : studentRole === 'evidence_analyst' ? '증거 분석관' : studentRole === 'counter_investigator' ? '반증 수사관' : '브리핑관'})
+                작성자: {studentName} ({ROLE_DEFINITIONS[studentRole]?.title || studentRole || '수사관'})
               </p>
             </div>
           </div>

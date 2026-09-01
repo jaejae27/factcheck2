@@ -339,7 +339,7 @@ export function openPresentationInNewWindow(
         <div class="flex flex-wrap items-center justify-center gap-2 pt-4">
           ${teamMembers.map(m => `
             <span class="px-3 py-1 rounded-xl bg-[#0f274a] text-cyan-200 text-xs font-bold border border-cyan-500/30">
-              ${escapeHtml(m.studentNumber)}번 ${escapeHtml(m.name)} (${escapeHtml(m.role ? ROLE_DEFINITIONS[m.role]?.title.slice(0,4) : '수사관')})
+              ${escapeHtml(m.studentNumber)}번 ${escapeHtml(m.name)} (${escapeHtml(m.role ? (ROLE_DEFINITIONS[m.role]?.title || m.role) : '수사관')})
             </span>
           `).join('')}
         </div>

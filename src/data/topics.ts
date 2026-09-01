@@ -605,6 +605,8 @@ export const TOPIC_CATEGORIES = [
   { id: 'daily', label: '생활 속 궁금증' },
 ];
 
+export const MAIN_ROLES = ['team_leader', 'process_officer', 'source_verifier', 'record_officer'] as const;
+
 export const ROLE_DEFINITIONS: Record<string, {
   title: string;
   badge: string;
@@ -613,52 +615,102 @@ export const ROLE_DEFINITIONS: Record<string, {
   missions: string[];
   color: string;
 }> = {
-  source_tracker: {
-    title: '출처 추적관',
-    badge: 'SOURCE INVESTIGATOR',
-    icon: 'Search',
-    color: 'emerald',
-    description: '정보의 최초 진원지와 기관의 신뢰성을 끝까지 추적합니다.',
+  team_leader: {
+    title: '수사팀장(발표)',
+    badge: 'LEAD INVESTIGATOR',
+    icon: 'Award',
+    color: 'indigo',
+    description: '수사 방향을 총괄하고 최종 수사 결과와 팩트체크 결론을 대표로 발표·브리핑합니다.',
     missions: [
-      '정보가 어디에서 시작되었는지 원출처(기사→연구→기관) 추적하기',
-      '자료를 발표한 기관이나 작성자의 전문성과 이해관계 확인하기',
-      '게시 날짜와 원본 논문/보고서 링크 확보하기'
+      '모둠의 전체 수사 계획 및 가설 검증 방향 총괄하기',
+      '모둠원이 모은 증거들을 종합하여 최종 결론 브리핑 준비하기',
+      '팩트체크 수사보고서 발표 및 타 모둠과의 질의응답 리드하기'
     ]
   },
-  evidence_analyst: {
-    title: '증거 분석관',
-    badge: 'EVIDENCE ANALYST',
+  process_officer: {
+    title: '수사 진행관(진행)',
+    badge: 'PROCESS FACILITATOR',
+    icon: 'Sliders',
+    color: 'amber',
+    description: '수사 단계별 시간과 진행 상황을 점검하고 팀원들의 활발한 참여와 협력을 이끕니다.',
+    missions: [
+      '단계별(가설→질문→증거→검증→판정) 수사 진행 속도 및 누락 점검하기',
+      '수사 중 막히는 부분이 생기면 교사 SOS 요청 및 힌트 모둠 공유하기',
+      '모둠원 전원이 고르게 증거 수집과 토의에 참여하도록 조율하기'
+    ]
+  },
+  source_verifier: {
+    title: '출처 검증관(검증)',
+    badge: 'SOURCE VERIFIER',
+    icon: 'Search',
+    color: 'emerald',
+    description: '수집된 자료의 최초 원출처, 공인성, 작성 기관의 신뢰도와 이해관계를 철저히 검증합니다.',
+    missions: [
+      '뉴스/블로그의 2차 인용이 아닌 정부·학회·공인 연구 원출처 직접 추적하기',
+      '발표 기관의 신뢰도와 이해관계, 최신성(발행연도) 검증하기',
+      '가설을 반박하거나 조건을 제시하는 반증 자료도 함께 검증하기'
+    ]
+  },
+  record_officer: {
+    title: '판정 기록관(기록)',
+    badge: 'VERDICT RECORDER',
     icon: 'FileText',
     color: 'blue',
-    description: '자료의 실제 내용과 핵심 수치, 조사 대상을 꼼꼼히 해부합니다.',
+    description: '모둠의 핵심 증거 카드, 질문 내용, 합의된 최종 판정 근거를 꼼꼼하게 기록합니다.',
     missions: [
-      '자료가 실제로 말하는 주장과 데이터 핵심 파악하기',
-      '조사 대상(표본 수, 연령)과 실험 방법의 타당성 검토하기',
-      '자료가 우리 가설을 뒷받침하는 구체적인 수치 정리하기'
+      '수사관들이 확보한 핵심 통계, 조사 수치, 근거 자료를 증거 카드로 작성하기',
+      '모둠 토의를 통해 도출된 핵심 수사 질문과 답변 내용 기록하기',
+      '최종 8단계 판정 기준에 따른 모둠의 판정 근거 및 결정적 이유 명문화하기'
+    ]
+  },
+  // Backwards compatibility fallbacks
+  briefing_officer: {
+    title: '수사팀장(발표)',
+    badge: 'LEAD INVESTIGATOR',
+    icon: 'Award',
+    color: 'indigo',
+    description: '수사 방향을 총괄하고 최종 수사 결과와 팩트체크 결론을 대표로 발표·브리핑합니다.',
+    missions: [
+      '모둠의 전체 수사 계획 및 가설 검증 방향 총괄하기',
+      '모둠원이 모은 증거들을 종합하여 최종 결론 브리핑 준비하기',
+      '팩트체크 수사보고서 발표 및 타 모둠과의 질의응답 리드하기'
     ]
   },
   counter_investigator: {
-    title: '반증 수사관',
-    badge: 'COUNTER-EVIDENCE DETECTIVE',
-    icon: 'ShieldAlert',
+    title: '수사 진행관(진행)',
+    badge: 'PROCESS FACILITATOR',
+    icon: 'Sliders',
     color: 'amber',
-    description: '최초 생각과 다른 반대 증거, 숨겨진 조건과 예외를 집요하게 찾습니다.',
+    description: '수사 단계별 시간과 진행 상황을 점검하고 팀원들의 활발한 참여와 협력을 이끕니다.',
     missions: [
-      '우리 가설과 정반대되는 연구 결과나 반론 자료 찾아내기',
-      '‘상관관계’를 ‘인과관계’로 과도하게 일반화하지 않았는지 의심하기',
-      '주장이 성립하기 위한 필수 조건이나 빠진 맥락 찾아내기'
+      '단계별(가설→질문→증거→검증→판정) 수사 진행 속도 및 누락 점검하기',
+      '수사 중 막히는 부분이 생기면 교사 SOS 요청 및 힌트 모둠 공유하기',
+      '모둠원 전원이 고르게 증거 수집과 토의에 참여하도록 조율하기'
     ]
   },
-  briefing_officer: {
-    title: '브리핑관',
-    badge: 'CHIEF BRIEFING OFFICER',
-    icon: 'Radio',
-    color: 'indigo',
-    description: '모든 수사관의 증거를 종합하여 결정적 판정을 내리고 최종 브리핑을 이끕니다.',
+  source_tracker: {
+    title: '출처 검증관(검증)',
+    badge: 'SOURCE VERIFIER',
+    icon: 'Search',
+    color: 'emerald',
+    description: '수집된 자료의 최초 원출처, 공인성, 작성 기관의 신뢰도와 이해관계를 철저히 검증합니다.',
     missions: [
-      '모둠원이 모은 증거들의 공통점과 차이점을 한눈에 비교 정리하기',
-      '확보된 증거의 한계를 인정하고 가장 적절한 최종 판정 도출하기',
-      '팩트체크 수사보고서 및 발표 슬라이드 브리핑 리드하기'
+      '뉴스/블로그의 2차 인용이 아닌 정부·학회·공인 연구 원출처 직접 추적하기',
+      '발표 기관의 신뢰도와 이해관계, 최신성(발행연도) 검증하기',
+      '가설을 반박하거나 조건을 제시하는 반증 자료도 함께 검증하기'
+    ]
+  },
+  evidence_analyst: {
+    title: '판정 기록관(기록)',
+    badge: 'VERDICT RECORDER',
+    icon: 'FileText',
+    color: 'blue',
+    description: '모둠의 핵심 증거 카드, 질문 내용, 합의된 최종 판정 근거를 꼼꼼하게 기록합니다.',
+    missions: [
+      '수사관들이 확보한 핵심 통계, 조사 수치, 근거 자료를 증거 카드로 작성하기',
+      '모둠 토의를 통해 도출된 핵심 수사 질문과 답변 내용 기록하기',
+      '최종 8단계 판정 기준에 따른 모둠의 판정 근거 및 결정적 이유 명문화하기'
     ]
   }
 };
+

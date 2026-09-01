@@ -1,6 +1,14 @@
 export type DifficultyMode = 'quick' | 'standard' | 'deep_counter'; // 빠른 수사, 본격 수사, 반전 수사
 
-export type StudentRole = 'source_tracker' | 'evidence_analyst' | 'counter_investigator' | 'briefing_officer';
+export type StudentRole = 
+  | 'team_leader' // 수사팀장(발표)
+  | 'process_officer' // 수사 진행관(진행)
+  | 'source_verifier' // 출처 검증관(검증)
+  | 'record_officer' // 판정 기록관(기록)
+  | 'source_tracker' // legacy fallback
+  | 'evidence_analyst'
+  | 'counter_investigator'
+  | 'briefing_officer';
 
 export interface RoleDefinition {
   id: StudentRole;

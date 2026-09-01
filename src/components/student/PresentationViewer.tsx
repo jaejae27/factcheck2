@@ -221,7 +221,7 @@ export const PresentationViewer: React.FC<PresentationViewerProps> = ({
                 </p>
               </div>
               <p className="text-xs text-slate-400">
-                수사 참여: {teamMembers.map(m => `${m.studentNumber}번 ${m.name}`).join(', ')}
+                수사 참여: {teamMembers.map(m => `${m.studentNumber}번 ${m.name}${m.role ? ` (${ROLE_DEFINITIONS[m.role]?.title || m.role})` : ''}`).join(', ')}
               </p>
             </div>
           )}

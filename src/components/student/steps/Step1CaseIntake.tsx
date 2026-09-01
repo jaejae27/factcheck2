@@ -19,7 +19,7 @@ import {
   ShieldAlert,
   Info
 } from 'lucide-react';
-import { FACT_CHECK_TOPICS, TOPIC_CATEGORIES, ROLE_DEFINITIONS } from '../../../data/topics';
+import { FACT_CHECK_TOPICS, TOPIC_CATEGORIES, ROLE_DEFINITIONS, MAIN_ROLES } from '../../../data/topics';
 import { InvestigationData, Student, StudentRole, Team, TopicItem } from '../../../types';
 
 interface Step1CaseIntakeProps {
@@ -684,13 +684,13 @@ export const Step1CaseIntake: React.FC<Step1CaseIntakeProps> = ({
           </div>
           {student.role && (
             <span className="px-3 py-1 bg-emerald-950 text-emerald-300 border border-emerald-500/50 rounded-full text-xs font-black">
-              내 역할: {ROLE_DEFINITIONS[student.role]?.title}
+              내 역할: {ROLE_DEFINITIONS[student.role]?.title || student.role}
             </span>
           )}
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {(Object.keys(ROLE_DEFINITIONS) as StudentRole[]).map((rKey) => {
+          {MAIN_ROLES.map((rKey) => {
             const rDef = ROLE_DEFINITIONS[rKey];
             const isSelectedByMe = student.role === rKey;
             const assignedStudentId = team.assignedRoles?.[rKey];
