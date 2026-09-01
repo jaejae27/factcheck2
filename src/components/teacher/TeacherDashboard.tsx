@@ -251,9 +251,7 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
       slideIndex: 0,
       startedAt: new Date().toISOString(),
     });
-    setShowTeacherPresentation(true);
-
-    // Automatically open the presentation in a standalone popup window
+    // Do not mount inline/modal presentation in teacher screen - open directly in standalone popup window
     const targetTeam = liveTeams.find((t) => t.id === teamId);
     if (targetTeam) {
       const inv = investigationsMap[teamId] || { teamId, updatedAt: Date.now() };
